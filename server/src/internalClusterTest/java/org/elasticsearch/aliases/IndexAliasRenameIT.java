@@ -10,6 +10,7 @@
 package org.elasticsearch.aliases;
 
 import org.elasticsearch.action.ActionRequestValidationException;
+import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.elasticsearch.action.admin.indices.rename.RenameIndexAction;
 import org.elasticsearch.action.support.IndicesOptions;
@@ -26,7 +27,11 @@ import org.elasticsearch.test.junit.annotations.TestLogging;
 import org.elasticsearch.xcontent.XContentType;
 import org.hamcrest.Matchers;
 
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import static java.util.Collections.emptySet;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
@@ -360,6 +365,103 @@ public class IndexAliasRenameIT extends ESIntegTestCase {
             nullException.getMessage(),
             Matchers.containsString("destination index is missing")
         );
+    }
+
+    /**
+    * Tests that an alias remains associated with an index after renaming,
+    * and that documents ingested via the alias before and after the rename are searchable through the alias.
+    */
+    public void testAliasPersistsAndIsUsableAfterIndexRename() {
+        String index = "alias_index";
+        String alias = "my_alias";
+        String renamedIndex = "renamed_index";
+
+        // Create index with alias
+        assertAcked(prepareCreate(index).addAlias(new Alias(alias)));
+
+        // Ingest a document via the alias
+        client().prepareIndex(alias)
+            .setSource("{ \"field\": \"first\" }", XContentType.JSON)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+            .get();
+
+        // Assert the alias returns the document
+        ElasticsearchAssertions.assertResponse(client().prepareSearch(alias), response -> {
+            assertEquals(1, response.getHits().getTotalHits().value());
+            assertEquals(index, response.getHits().getAt(0).getIndex());
+            assertEquals("first", response.getHits().getAt(0).getSourceAsMap().get("field"));
+        });
+
+        // Rename the index
+        rename(index, renamedIndex);
+
+        // Assert the alias still points to the renamed index
+        var aliases = client().admin().indices().prepareGetAliases(TEST_REQUEST_TIMEOUT, alias).get().getAliases();
+        assertTrue("Alias should still exist for renamed index", aliases.containsKey(renamedIndex));
+        assertFalse("Alias should not exist for old index", aliases.containsKey(index));
+
+        // Ingest another document via the alias
+        client().prepareIndex(alias)
+            .setSource("{ \"field\": \"second\" }", XContentType.JSON)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+            .get();
+
+        // Assert both documents are found via the alias
+        ElasticsearchAssertions.assertResponse(client().prepareSearch(alias), response -> {
+            assertEquals(2, response.getHits().getTotalHits().value());
+            assertEquals(renamedIndex, response.getHits().getAt(0).getIndex());
+            assertEquals(renamedIndex, response.getHits().getAt(1).getIndex());
+            final var fieldValues = Stream.of(response.getHits().getHits())
+                .map(hit -> hit.getSourceAsMap().get("field"))
+                .collect(Collectors.toSet());
+            assertEquals(2, fieldValues.size());
+            assertTrue(fieldValues.contains("first"));
+            assertTrue(fieldValues.contains("second"));
+        });
+    }
+
+    /**
+     * Tests that after renaming an index with an alias, rolling over the alias creates a new index with the correct name.
+     */
+    public void testAliasRolloverAfterRename() {
+        String originalIndex = "rollover_test_index-000001";
+        String alias = "rollover_alias";
+        String renamedIndex = "rollover_renamed_index-000001";
+
+        // Create index with alias
+        assertAcked(prepareCreate(originalIndex).addAlias(new Alias(alias)));
+
+        // Index a document via the alias
+        client().prepareIndex(alias)
+            .setSource("{ \"field\": \"before_rename\" }", XContentType.JSON)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+            .get();
+
+        // Rename the index
+        rename(originalIndex, renamedIndex);
+
+        // Rollover the alias
+        var rolloverResponse = client().admin().indices().prepareRolloverIndex(alias).get();
+
+        // The new index name should be based on the alias and rollover pattern
+        String newIndexName = rolloverResponse.getNewIndex();
+        // TODO: alias rollover doesn't use the renamed index name because it uses SETTING_INDEX_PROVIDED_NAME
+        // assertEquals("rollover_renamed_index-000002", newIndexName);
+
+        // Ensure the new index exists and is empty
+        ElasticsearchAssertions.assertHitCount(client().prepareSearch(newIndexName), 0L);
+
+        // Index a document into the new index via the alias (should go to the write index)
+        client().prepareIndex(alias)
+            .setSource("{ \"field\": \"after_rollover\" }", XContentType.JSON)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
+            .get();
+
+        // Ensure the new document is found in the new index
+        ElasticsearchAssertions.assertResponse(client().prepareSearch(newIndexName), response -> {
+            assertEquals(1, response.getHits().getTotalHits().value());
+            assertEquals("after_rollover", response.getHits().getAt(0).getSourceAsMap().get("field"));
+        });
     }
 
     private void rename(String source, String target) {

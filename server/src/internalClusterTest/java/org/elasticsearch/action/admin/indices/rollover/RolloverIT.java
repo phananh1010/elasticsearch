@@ -591,7 +591,8 @@ public class RolloverIT extends ESIntegTestCase {
 
     public void testRolloverMaxPrimaryShardDocs() throws Exception {
         assertAcked(
-            prepareCreate("test-1").setSettings(Settings.builder().put("index.number_of_shards", 1)).addAlias(new Alias("test_alias"))
+            prepareCreate("test-1").setSettings(Settings.builder().put("index.number_of_shards", 1)).addAlias(new Alias("test_alias")),
+            false
         );
         int numDocs = randomIntBetween(10, 20);
         for (int i = 0; i < numDocs; i++) {

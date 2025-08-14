@@ -19,10 +19,15 @@ import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionRequestBuilder;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.RequestBuilder;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequestBuilder;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.cluster.health.TransportClusterHealthAction;
+import org.elasticsearch.action.admin.cluster.state.ClusterStateAction;
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.admin.indices.rename.RenameIndexAction;
 import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResponse;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetResponse;
@@ -37,8 +42,12 @@ import org.elasticsearch.action.support.master.IsAcknowledgedSupplier;
 import org.elasticsearch.client.internal.Client;
 import org.elasticsearch.cluster.block.ClusterBlock;
 import org.elasticsearch.cluster.block.ClusterBlockException;
+import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetadata;
+import org.elasticsearch.cluster.metadata.MetadataCreateIndexService;
+import org.elasticsearch.cluster.metadata.MetadataIndexTemplateService;
+import org.elasticsearch.common.Priority;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.core.CheckedConsumer;
@@ -105,7 +114,11 @@ import static org.junit.Assert.fail;
 public class ElasticsearchAssertions {
 
     public static void assertAcked(RequestBuilder<?, ? extends IsAcknowledgedSupplier> builder) {
-        assertAcked(builder, TimeValue.timeValueSeconds(30));
+        assertAcked(builder, true);
+    }
+
+    public static void assertAcked(RequestBuilder<?, ? extends IsAcknowledgedSupplier> builder, boolean rename) {
+        assertAcked(builder, TimeValue.timeValueSeconds(30), rename);
     }
 
     @SafeVarargs
@@ -147,7 +160,53 @@ public class ElasticsearchAssertions {
     }
 
     public static void assertAcked(RequestBuilder<?, ? extends IsAcknowledgedSupplier> builder, TimeValue timeValue) {
+        assertAcked(builder, timeValue, true);
+    }
+
+    public static void assertAcked(RequestBuilder<?, ? extends IsAcknowledgedSupplier> builder, TimeValue timeValue, boolean rename) {
+        if (rename && builder instanceof CreateIndexRequestBuilder createIndexRequestBuilder) {
+            renameIndex(createIndexRequestBuilder, timeValue);
+            return;
+        }
         assertAcked(builder.get(timeValue));
+    }
+
+    private static void renameIndex(CreateIndexRequestBuilder builder, TimeValue timeValue) {
+        final String name = builder.request().index();
+        // We don't rename the index if the name matches an index template or if the name starts with special characters.
+        final var client = builder.client();
+        final var clusterState = client.execute(ClusterStateAction.INSTANCE, new ClusterStateRequest(timeValue))
+            .actionGet(timeValue)
+            .getState();
+        final var project = clusterState.metadata().getProject();
+        final var v1Templates = MetadataIndexTemplateService.findV1Templates(project, name, true);
+        final var v2Template = MetadataIndexTemplateService.findV2Template(project, name, true);
+        if (v1Templates.isEmpty() == false || v2Template != null || name.startsWith(".") || name.startsWith("<")) {
+            assertAcked(builder.get(timeValue));
+            return;
+        }
+        // Create a temporary index
+        final var tempName = "temp_" + name.substring(0, Math.min(name.length(), MetadataCreateIndexService.MAX_INDEX_NAME_BYTES - 5));
+        builder.setIndex(tempName);
+        assertAcked(builder.get(timeValue));
+
+        final var clusterHealthTimeout = TimeValue.timeValueSeconds(5);
+        ClusterHealthRequest healthRequest = new ClusterHealthRequest(clusterHealthTimeout, tempName).timeout(clusterHealthTimeout)
+            .waitForStatus(ClusterHealthStatus.GREEN)
+            .waitForEvents(Priority.LANGUID)
+            .waitForNoRelocatingShards(true)
+            .waitForNoInitializingShards(true);
+
+        final ClusterHealthResponse clusterHealthResponse;
+        try {
+            clusterHealthResponse = client.execute(TransportClusterHealthAction.TYPE, healthRequest).actionGet(timeValue);
+        } catch (Exception e) {
+
+        }
+
+        // Rename the temporary index to the desired name
+        client.execute(RenameIndexAction.INSTANCE, new RenameIndexAction.Request(timeValue, timeValue, tempName, name)).actionGet();
+
     }
 
     public static void assertNoTimeout(ClusterHealthRequestBuilder requestBuilder) {

@@ -333,6 +333,19 @@ public class IndexLifecycleService
                 cancelJob();
                 policyRegistry.clear();
             }
+        } else if (this.isMaster) {
+            for (ProjectMetadata project : event.state().metadata().projects().values()) {
+                final var previousProject = event.previousState().metadata().projects().get(project.id());
+                if (previousProject == null) {
+                    continue;
+                }
+                final OperationMode currentMode = currentILMMode(project);
+                final OperationMode previousMode = currentILMMode(previousProject);
+                if (currentMode == OperationMode.RUNNING && previousMode != OperationMode.RUNNING) {
+                    // We just changed to RUNNING mode, so kick off any async actions that may not have run while not in RUNNING mode
+                    onMaster(event.state().projectState(project.id()));
+                }
+            }
         }
 
         // if we're the master, then process deleted indices and trigger policies

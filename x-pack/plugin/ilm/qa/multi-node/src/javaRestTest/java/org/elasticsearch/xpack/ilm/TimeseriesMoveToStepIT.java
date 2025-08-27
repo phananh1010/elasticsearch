@@ -51,6 +51,7 @@ public class TimeseriesMoveToStepIT extends ESRestTestCase {
         index = "index-" + randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         policy = "policy-" + randomAlphaOfLength(5);
         alias = "alias-" + randomAlphaOfLength(5);
+        logger.info("--> running [{}] with index [{}], alias [{}] and policy [{}]", getTestName(), index, alias, policy);
     }
 
     public void testMoveToAllocateStep() throws Exception {
@@ -243,6 +244,63 @@ public class TimeseriesMoveToStepIT extends ESRestTestCase {
 
         // Make sure we actually rolled over
         assertBusy(() -> { indexExists("test-000002"); });
+    }
+
+    public void test() throws Exception {
+        String originalIndex = index + "-000001";
+        // create policy
+        // createFullPolicy(client(), policy, TimeValue.timeValueHours(10));
+        // createNewSingletonPolicy(client(), policy, "hot", new ReadOnlyAction(), TimeValue.timeValueHours(1));
+        Request createPolicyRequest = new Request("PUT", "_ilm/policy/" + policy);
+        createPolicyRequest.setJsonEntity("""
+            {
+              "policy": {
+                "phases": {
+                  "hot": {
+                    "actions": {
+                      "rollover" : {
+                        "max_age": "1h"
+                      },
+                      "readonly": {}
+                    }
+                  }
+                }
+              }
+            }""");
+        client().performRequest(createPolicyRequest);
+
+        createIndexWithSettings(client(), originalIndex, alias, Settings.builder().put(LifecycleSettings.LIFECYCLE_NAME, policy));
+
+        // Wait for ILM to do everything it can for this index
+        assertBusy(() -> assertEquals(new StepKey("hot", "rollover", "check-rollover-ready"), getStepKeyForIndex(client(), originalIndex)));
+
+        // Stop ILM
+        client().performRequest(new Request("POST", "/_ilm/stop"));
+
+        // move to a step
+        Request moveToStepRequest = new Request("POST", "_ilm/move/" + originalIndex);
+        moveToStepRequest.setJsonEntity("""
+            {
+              "current_step": {
+                "phase": "hot",
+                "action": "rollover",
+                "name": "check-rollover-ready"
+              },
+              "next_step": {
+                "phase": "hot",
+                "action": "readonly",
+                "name": "readonly"
+              }
+            }""");
+        client().performRequest(moveToStepRequest);
+        Thread.sleep(5000);
+        assertTrue(getStepKeyForIndex(client(), originalIndex).equals(new StepKey("hot", "readonly", "readonly")));
+
+        // Restart ILM
+        client().performRequest(new Request("POST", "/_ilm/start"));
+
+        // Make sure we actually complete the remainder of the policy after ILM is started again
+        assertBusy(() -> assertEquals(new StepKey("hot", "complete", "complete"), getStepKeyForIndex(client(), originalIndex)));
     }
 
     public void testMoveToStepWithInvalidNextStep() throws Exception {

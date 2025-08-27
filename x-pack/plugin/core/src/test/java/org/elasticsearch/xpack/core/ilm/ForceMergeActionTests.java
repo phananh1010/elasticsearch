@@ -9,9 +9,7 @@ package org.elasticsearch.xpack.core.ilm;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.io.stream.Writeable.Reader;
 import org.elasticsearch.common.xcontent.XContentHelper;
-import org.elasticsearch.core.Tuple;
 import org.elasticsearch.index.codec.CodecService;
-import org.elasticsearch.index.engine.EngineConfig;
 import org.elasticsearch.xcontent.DeprecationHandler;
 import org.elasticsearch.xcontent.XContentParser;
 import org.elasticsearch.xcontent.XContentType;
@@ -21,9 +19,7 @@ import org.elasticsearch.xpack.core.ilm.Step.StepKey;
 import java.io.IOException;
 import java.util.List;
 
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
 
 public class ForceMergeActionTests extends AbstractActionTestCase<ForceMergeAction> {
 
@@ -60,89 +56,146 @@ public class ForceMergeActionTests extends AbstractActionTestCase<ForceMergeActi
         return ForceMergeAction::new;
     }
 
-    private void assertNonBestCompression(ForceMergeAction instance) {
+    @Override
+    public void testToSteps() {
+        ForceMergeAction instance = randomInstance();
+        boolean hasCodec = instance.getCodec() != null;
         String phase = randomAlphaOfLength(5);
         StepKey nextStepKey = new StepKey(randomAlphaOfLength(10), randomAlphaOfLength(10), randomAlphaOfLength(10));
         List<Step> steps = instance.toSteps(null, phase, nextStepKey);
-        assertNotNull(steps);
-        assertEquals(6, steps.size());
-        BranchingStep firstStep = (BranchingStep) steps.get(0);
-        CheckNotDataStreamWriteIndexStep secondStep = (CheckNotDataStreamWriteIndexStep) steps.get(1);
-        WaitUntilTimeSeriesEndTimePassesStep thirdStep = (WaitUntilTimeSeriesEndTimePassesStep) steps.get(2);
-        NoopStep fourthStep = (NoopStep) steps.get(3);
-        ForceMergeStep fifthStep = (ForceMergeStep) steps.get(4);
-        SegmentCountStep sixthStep = (SegmentCountStep) steps.get(5);
 
-        assertThat(
-            firstStep.getKey(),
-            equalTo(new StepKey(phase, ForceMergeAction.NAME, ForceMergeAction.CONDITIONAL_SKIP_FORCE_MERGE_STEP))
+        assertThat(steps.size(), equalTo(22));
+
+        StepKey conditionalSkipForceMergeKey = new StepKey(
+            phase,
+            ForceMergeAction.NAME,
+            ForceMergeAction.CONDITIONAL_SKIP_FORCE_MERGE_STEP
         );
-
-        assertThat(secondStep.getKey(), equalTo(new StepKey(phase, ForceMergeAction.NAME, CheckNotDataStreamWriteIndexStep.NAME)));
-        assertThat(
-            secondStep.getNextStepKey(),
-            equalTo(new StepKey(phase, ForceMergeAction.NAME, WaitUntilTimeSeriesEndTimePassesStep.NAME))
+        StepKey checkNotWriteIndexKey = new StepKey(phase, ForceMergeAction.NAME, CheckNotDataStreamWriteIndexStep.NAME);
+        StepKey waitUntilTimeSeriesEndTimeKey = new StepKey(phase, ForceMergeAction.NAME, WaitUntilTimeSeriesEndTimePassesStep.NAME);
+        StepKey conditionalSkipCloneKey = new StepKey(phase, ForceMergeAction.NAME, ForceMergeAction.CONDITIONAL_SKIP_CLONE_STEP);
+        StepKey closeIndexKey = new StepKey(phase, ForceMergeAction.NAME, CloseIndexStep.NAME);
+        StepKey updateBestCompressionKey = new StepKey(phase, ForceMergeAction.NAME, ForceMergeAction.UPDATE_COMPRESSION_SETTINGS_STEP);
+        StepKey openIndexKey = new StepKey(phase, ForceMergeAction.NAME, OpenIndexStep.NAME);
+        StepKey waitForGreenIndexKey = new StepKey(phase, ForceMergeAction.NAME, ForceMergeAction.WAIT_FOR_COMPRESSION_SETTINGS_GREEN);
+        StepKey cleanupClonedIndexKey = new StepKey(phase, ForceMergeAction.NAME, CleanupGeneratedIndexStep.NAME);
+        StepKey readOnlyKey = new StepKey(phase, ForceMergeAction.NAME, ReadOnlyStep.NAME);
+        StepKey generateCloneIndexNameKey = new StepKey(phase, ForceMergeAction.NAME, GenerateUniqueIndexNameStep.NAME);
+        StepKey cloneIndexKey = new StepKey(phase, ForceMergeAction.NAME, ResizeIndexStep.CLONE);
+        StepKey waitForClonedIndexGreenKey = new StepKey(phase, ForceMergeAction.NAME, ForceMergeAction.WAIT_FOR_CLONED_INDEX_GREEN);
+        StepKey forceMergeKey = new StepKey(phase, ForceMergeAction.NAME, ForceMergeStep.NAME);
+        StepKey segmentCountKey = new StepKey(phase, ForceMergeAction.NAME, SegmentCountStep.NAME);
+        StepKey conditionalConfigureClonedIndexKey = new StepKey(
+            phase,
+            ForceMergeAction.NAME,
+            ForceMergeAction.CONDITIONAL_CONFIGURE_CLONED_INDEX_STEP
         );
-
-        assertThat(thirdStep.getKey(), equalTo(new StepKey(phase, ForceMergeAction.NAME, WaitUntilTimeSeriesEndTimePassesStep.NAME)));
-        assertThat(thirdStep.getNextStepKey(), equalTo(new StepKey(phase, ForceMergeAction.NAME, ForceMergeStep.NAME)));
-
-        assertThat(fourthStep.getKey(), equalTo(new StepKey(phase, ForceMergeAction.NAME, ReadOnlyAction.NAME)));
-        assertThat(fourthStep.getNextStepKey(), equalTo(new StepKey(phase, ForceMergeAction.NAME, ForceMergeStep.NAME)));
-
-        assertThat(fifthStep.getKey(), equalTo(new StepKey(phase, ForceMergeAction.NAME, ForceMergeStep.NAME)));
-        assertThat(fifthStep.getNextStepKey(), equalTo(new StepKey(phase, ForceMergeAction.NAME, SegmentCountStep.NAME)));
-
-        assertThat(sixthStep.getKey(), equalTo(new StepKey(phase, ForceMergeAction.NAME, SegmentCountStep.NAME)));
-        assertThat(sixthStep.getNextStepKey(), equalTo(nextStepKey));
-    }
-
-    private void assertBestCompression(ForceMergeAction instance) {
-        String phase = randomAlphaOfLength(5);
-        StepKey nextStepKey = new StepKey(randomAlphaOfLength(10), randomAlphaOfLength(10), randomAlphaOfLength(10));
-        List<Step> steps = instance.toSteps(null, phase, nextStepKey);
-        assertNotNull(steps);
-        assertEquals(10, steps.size());
-        List<Tuple<StepKey, StepKey>> stepKeys = steps.stream()
-            // skip the first branching step as `performAction` needs to be executed to evaluate the condition before the next step is
-            // available
-            .skip(1)
-            .map(s -> new Tuple<>(s.getKey(), s.getNextStepKey()))
-            .toList();
-
-        StepKey checkNotWriteIndex = new StepKey(phase, ForceMergeAction.NAME, CheckNotDataStreamWriteIndexStep.NAME);
-        StepKey waitTimeSeriesEndTimePassesKey = new StepKey(phase, ForceMergeAction.NAME, WaitUntilTimeSeriesEndTimePassesStep.NAME);
-        StepKey noop = new StepKey(phase, ForceMergeAction.NAME, ReadOnlyAction.NAME);
-        StepKey closeIndex = new StepKey(phase, ForceMergeAction.NAME, CloseIndexStep.NAME);
-        StepKey updateCodec = new StepKey(phase, ForceMergeAction.NAME, UpdateSettingsStep.NAME);
-        StepKey openIndex = new StepKey(phase, ForceMergeAction.NAME, OpenIndexStep.NAME);
-        StepKey waitForGreen = new StepKey(phase, ForceMergeAction.NAME, WaitForIndexColorStep.NAME);
-        StepKey forceMerge = new StepKey(phase, ForceMergeAction.NAME, ForceMergeStep.NAME);
-        StepKey segmentCount = new StepKey(phase, ForceMergeAction.NAME, SegmentCountStep.NAME);
-        assertThat(
-            steps.get(0).getKey(),
-            is(new StepKey(phase, ForceMergeAction.NAME, ForceMergeAction.CONDITIONAL_SKIP_FORCE_MERGE_STEP))
+        StepKey reconfigureReplicasKey = new StepKey(phase, ForceMergeAction.NAME, ForceMergeAction.UPDATE_CLONED_INDEX_SETTINGS_STEP);
+        StepKey copyMetadataKey = new StepKey(phase, ForceMergeAction.NAME, CopyExecutionStateStep.NAME);
+        StepKey aliasDataStreamBranchingKey = new StepKey(
+            phase,
+            ForceMergeAction.NAME,
+            ForceMergeAction.CONDITIONAL_DATA_STREAM_CHECK_STEP
         );
-        assertThat(
-            stepKeys,
-            contains(
-                new Tuple<>(checkNotWriteIndex, waitTimeSeriesEndTimePassesKey),
-                new Tuple<>(waitTimeSeriesEndTimePassesKey, closeIndex),
-                new Tuple<>(noop, closeIndex),
-                new Tuple<>(closeIndex, updateCodec),
-                new Tuple<>(updateCodec, openIndex),
-                new Tuple<>(openIndex, waitForGreen),
-                new Tuple<>(waitForGreen, forceMerge),
-                new Tuple<>(forceMerge, segmentCount),
-                new Tuple<>(segmentCount, nextStepKey)
-            )
-        );
+        StepKey aliasSwapAndDeleteKey = new StepKey(phase, ForceMergeAction.NAME, ShrinkSetAliasStep.NAME);
+        StepKey replaceDataStreamIndexKey = new StepKey(phase, ForceMergeAction.NAME, ReplaceDataStreamBackingIndexStep.NAME);
+        StepKey deleteSourceIndexKey = new StepKey(phase, ForceMergeAction.NAME, DeleteStep.NAME);
 
-        UpdateSettingsStep updateCodecStep = (UpdateSettingsStep) steps.get(5);
-        assertThat(
-            updateCodecStep.getSettingsSupplier().apply(null).get(EngineConfig.INDEX_CODEC_SETTING.getKey()),
-            equalTo(CodecService.BEST_COMPRESSION_CODEC)
-        );
+        assertTrue(steps.get(0) instanceof BranchingStep);
+        assertThat(steps.get(0).getKey(), equalTo(conditionalSkipForceMergeKey));
+        assertThrows(IllegalStateException.class, () -> steps.get(0).getNextStepKey());
+        assertThat(((BranchingStep) steps.get(0)).getNextStepKeyOnFalse(), equalTo(checkNotWriteIndexKey));
+        assertThat(((BranchingStep) steps.get(0)).getNextStepKeyOnTrue(), equalTo(nextStepKey));
+
+        assertTrue(steps.get(1) instanceof CheckNotDataStreamWriteIndexStep);
+        assertThat(steps.get(1).getKey(), equalTo(checkNotWriteIndexKey));
+        assertThat(steps.get(1).getNextStepKey(), equalTo(waitUntilTimeSeriesEndTimeKey));
+
+        assertTrue(steps.get(2) instanceof WaitUntilTimeSeriesEndTimePassesStep);
+        assertThat(steps.get(2).getKey(), equalTo(waitUntilTimeSeriesEndTimeKey));
+        assertThat(steps.get(2).getNextStepKey(), equalTo(conditionalSkipCloneKey));
+
+        assertTrue(steps.get(3) instanceof BranchingStep);
+        assertThat(steps.get(3).getKey(), equalTo(conditionalSkipCloneKey));
+        assertThrows(IllegalStateException.class, () -> steps.get(3).getNextStepKey());
+        assertThat(((BranchingStep) steps.get(3)).getNextStepKeyOnFalse(), equalTo(cleanupClonedIndexKey));
+        assertThat(((BranchingStep) steps.get(3)).getNextStepKeyOnTrue(), equalTo(hasCodec ? closeIndexKey : forceMergeKey));
+
+        assertTrue(steps.get(4) instanceof CloseIndexStep);
+        assertThat(steps.get(4).getKey(), equalTo(closeIndexKey));
+        assertThat(steps.get(4).getNextStepKey(), equalTo(updateBestCompressionKey));
+
+        assertTrue(steps.get(5) instanceof UpdateSettingsStep);
+        assertThat(steps.get(5).getKey(), equalTo(updateBestCompressionKey));
+        assertThat(steps.get(5).getNextStepKey(), equalTo(openIndexKey));
+
+        assertTrue(steps.get(6) instanceof OpenIndexStep);
+        assertThat(steps.get(6).getKey(), equalTo(openIndexKey));
+        assertThat(steps.get(6).getNextStepKey(), equalTo(waitForGreenIndexKey));
+
+        assertTrue(steps.get(7) instanceof WaitForIndexColorStep);
+        assertThat(steps.get(7).getKey(), equalTo(waitForGreenIndexKey));
+        assertThat(steps.get(7).getNextStepKey(), equalTo(forceMergeKey));
+
+        assertTrue(steps.get(8) instanceof CleanupGeneratedIndexStep);
+        assertThat(steps.get(8).getKey(), equalTo(cleanupClonedIndexKey));
+        assertThat(steps.get(8).getNextStepKey(), equalTo(readOnlyKey));
+
+        assertTrue(steps.get(9) instanceof ReadOnlyStep);
+        assertThat(steps.get(9).getKey(), equalTo(readOnlyKey));
+        assertThat(steps.get(9).getNextStepKey(), equalTo(generateCloneIndexNameKey));
+
+        assertTrue(steps.get(10) instanceof GenerateUniqueIndexNameStep);
+        assertThat(steps.get(10).getKey(), equalTo(generateCloneIndexNameKey));
+        assertThat(steps.get(10).getNextStepKey(), equalTo(cloneIndexKey));
+
+        assertTrue(steps.get(11) instanceof ResizeIndexStep);
+        assertThat(steps.get(11).getKey(), equalTo(cloneIndexKey));
+        assertThat(steps.get(11).getNextStepKey(), equalTo(waitForClonedIndexGreenKey));
+
+        assertTrue(steps.get(12) instanceof ClusterStateWaitUntilThresholdStep);
+        assertThat(steps.get(12).getKey(), equalTo(waitForClonedIndexGreenKey));
+        assertThat(steps.get(12).getNextStepKey(), equalTo(forceMergeKey));
+
+        assertTrue(steps.get(13) instanceof ForceMergeStep);
+        assertThat(steps.get(13).getKey(), equalTo(forceMergeKey));
+        assertThat(steps.get(13).getNextStepKey(), equalTo(segmentCountKey));
+
+        assertTrue(steps.get(14) instanceof SegmentCountStep);
+        assertThat(steps.get(14).getKey(), equalTo(segmentCountKey));
+        assertThat(steps.get(14).getNextStepKey(), equalTo(conditionalConfigureClonedIndexKey));
+
+        assertTrue(steps.get(15) instanceof BranchingStep);
+        assertThat(steps.get(15).getKey(), equalTo(conditionalConfigureClonedIndexKey));
+        assertThrows(IllegalStateException.class, () -> steps.get(15).getNextStepKey());
+        assertThat(((BranchingStep) steps.get(15)).getNextStepKeyOnFalse(), equalTo(nextStepKey));
+        assertThat(((BranchingStep) steps.get(15)).getNextStepKeyOnTrue(), equalTo(reconfigureReplicasKey));
+
+        assertTrue(steps.get(16) instanceof UpdateSettingsStep);
+        assertThat(steps.get(16).getKey(), equalTo(reconfigureReplicasKey));
+        assertThat(steps.get(16).getNextStepKey(), equalTo(copyMetadataKey));
+
+        assertTrue(steps.get(17) instanceof CopyExecutionStateStep);
+        assertThat(steps.get(17).getKey(), equalTo(copyMetadataKey));
+        assertThat(steps.get(17).getNextStepKey(), equalTo(aliasDataStreamBranchingKey));
+
+        assertTrue(steps.get(18) instanceof BranchingStep);
+        assertThat(steps.get(18).getKey(), equalTo(aliasDataStreamBranchingKey));
+        assertThrows(IllegalStateException.class, () -> steps.get(18).getNextStepKey());
+        assertThat(((BranchingStep) steps.get(18)).getNextStepKeyOnFalse(), equalTo(aliasSwapAndDeleteKey));
+        assertThat(((BranchingStep) steps.get(18)).getNextStepKeyOnTrue(), equalTo(replaceDataStreamIndexKey));
+
+        assertTrue(steps.get(19) instanceof SwapAliasesAndDeleteSourceIndexStep);
+        assertThat(steps.get(19).getKey(), equalTo(aliasSwapAndDeleteKey));
+        assertThat(steps.get(19).getNextStepKey(), equalTo(nextStepKey));
+
+        assertTrue(steps.get(20) instanceof ReplaceDataStreamBackingIndexStep);
+        assertThat(steps.get(20).getKey(), equalTo(replaceDataStreamIndexKey));
+        assertThat(steps.get(20).getNextStepKey(), equalTo(deleteSourceIndexKey));
+
+        assertTrue(steps.get(21) instanceof DeleteStep);
+        assertThat(steps.get(21).getKey(), equalTo(deleteSourceIndexKey));
+        assertThat(steps.get(21).getNextStepKey(), equalTo(nextStepKey));
     }
 
     public void testMissingMaxNumSegments() throws IOException {
@@ -168,14 +221,5 @@ public class ForceMergeActionTests extends AbstractActionTestCase<ForceMergeActi
             () -> new ForceMergeAction(randomIntBetween(1, 10), "DummyCompressingStoredFields")
         );
         assertThat(r.getMessage(), equalTo("unknown index codec: [DummyCompressingStoredFields]"));
-    }
-
-    public void testToSteps() {
-        ForceMergeAction instance = createTestInstance();
-        if (instance.getCodec() != null && CodecService.BEST_COMPRESSION_CODEC.equals(instance.getCodec())) {
-            assertBestCompression(instance);
-        } else {
-            assertNonBestCompression(instance);
-        }
     }
 }

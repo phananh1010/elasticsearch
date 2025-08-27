@@ -268,10 +268,25 @@ public class PhaseCacheManagementTests extends ESTestCase {
                 new Step.StepKey("phase", "forcemerge", ForceMergeAction.CONDITIONAL_SKIP_FORCE_MERGE_STEP),
                 new Step.StepKey("phase", "forcemerge", CheckNotDataStreamWriteIndexStep.NAME),
                 new Step.StepKey("phase", "forcemerge", WaitUntilTimeSeriesEndTimePassesStep.NAME),
-                // This read-only key is now a noop step but we preserved it for backwards compatibility
-                new Step.StepKey("phase", "forcemerge", ReadOnlyAction.NAME),
-                new Step.StepKey("phase", "forcemerge", ForceMergeAction.NAME),
-                new Step.StepKey("phase", "forcemerge", SegmentCountStep.NAME)
+                new Step.StepKey("phase", "forcemerge", ForceMergeAction.CONDITIONAL_SKIP_CLONE_STEP),
+                new Step.StepKey("phase", "forcemerge", CloseIndexStep.NAME),
+                new Step.StepKey("phase", "forcemerge", ForceMergeAction.UPDATE_COMPRESSION_SETTINGS_STEP),
+                new Step.StepKey("phase", "forcemerge", OpenIndexStep.NAME),
+                new Step.StepKey("phase", "forcemerge", ForceMergeAction.WAIT_FOR_COMPRESSION_SETTINGS_GREEN),
+                new Step.StepKey("phase", "forcemerge", CleanupGeneratedIndexStep.NAME),
+                new Step.StepKey("phase", "forcemerge", ReadOnlyStep.NAME),
+                new Step.StepKey("phase", "forcemerge", GenerateUniqueIndexNameStep.NAME),
+                new Step.StepKey("phase", "forcemerge", ResizeIndexStep.CLONE),
+                new Step.StepKey("phase", "forcemerge", ForceMergeAction.WAIT_FOR_CLONED_INDEX_GREEN),
+                new Step.StepKey("phase", "forcemerge", ForceMergeStep.NAME),
+                new Step.StepKey("phase", "forcemerge", SegmentCountStep.NAME),
+                new Step.StepKey("phase", "forcemerge", ForceMergeAction.CONDITIONAL_CONFIGURE_CLONED_INDEX_STEP),
+                new Step.StepKey("phase", "forcemerge", ForceMergeAction.UPDATE_CLONED_INDEX_SETTINGS_STEP),
+                new Step.StepKey("phase", "forcemerge", CopyExecutionStateStep.NAME),
+                new Step.StepKey("phase", "forcemerge", ForceMergeAction.CONDITIONAL_DATA_STREAM_CHECK_STEP),
+                new Step.StepKey("phase", "forcemerge", ShrinkSetAliasStep.NAME),
+                new Step.StepKey("phase", "forcemerge", ReplaceDataStreamBackingIndexStep.NAME),
+                new Step.StepKey("phase", "forcemerge", DeleteStep.NAME)
             )
         );
     }

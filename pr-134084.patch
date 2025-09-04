@@ -1,0 +1,211 @@
+diff --git a/server/src/main/java/org/elasticsearch/TransportVersions.java b/server/src/main/java/org/elasticsearch/TransportVersions.java
+index 2d6c47eefff..85f7d758690 100644
+--- a/server/src/main/java/org/elasticsearch/TransportVersions.java
++++ b/server/src/main/java/org/elasticsearch/TransportVersions.java
+@@ -130,6 +130,7 @@ public class TransportVersions {
+     public static final TransportVersion ESQL_SKIP_ES_INDEX_SERIALIZATION = def(8_827_0_00);
+     public static final TransportVersion ADD_INDEX_BLOCK_TWO_PHASE = def(8_828_0_00);
+     public static final TransportVersion RESOLVE_CLUSTER_NO_INDEX_EXPRESSION = def(8_829_0_00);
++    public static final TransportVersion ML_ROLLOVER_LEGACY_INDICES = def(8_830_0_00);
+     public static final TransportVersion ADD_INCLUDE_FAILURE_INDICES_OPTION = def(8_831_0_00);
+     public static final TransportVersion ESQL_RESPONSE_PARTIAL = def(8_832_0_00);
+     public static final TransportVersion RANK_DOC_OPTIONAL_METADATA_FOR_EXPLAIN = def(8_833_0_00);
+@@ -146,7 +147,6 @@ public class TransportVersions {
+     public static final TransportVersion INITIAL_ELASTICSEARCH_8_18_2 = def(8_840_0_04);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_8_18_3 = def(8_840_0_05);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_8_18_4 = def(8_840_0_06);
+-    public static final TransportVersion INITIAL_ELASTICSEARCH_8_18_6 = def(8_840_0_08);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_8_18_7 = def(8_840_0_09);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_8_19 = def(8_841_0_00);
+     public static final TransportVersion COHERE_BIT_EMBEDDING_TYPE_SUPPORT_ADDED_BACKPORT_8_X = def(8_841_0_01);
+@@ -210,17 +210,16 @@ public class TransportVersions {
+     public static final TransportVersion ML_INFERENCE_COHERE_API_VERSION_8_19 = def(8_841_0_60);
+     public static final TransportVersion ESQL_DOCUMENTS_FOUND_AND_VALUES_LOADED_8_19 = def(8_841_0_61);
+     public static final TransportVersion ESQL_PROFILE_INCLUDE_PLAN_8_19 = def(8_841_0_62);
++    public static final TransportVersion ESQL_SPLIT_ON_BIG_VALUES_8_19 = def(8_841_0_63);
+     public static final TransportVersion ESQL_FIXED_INDEX_LIKE_8_19 = def(8_841_0_64);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_8_19_1 = def(8_841_0_65);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_8_19_2 = def(8_841_0_66);
+-    public static final TransportVersion INITIAL_ELASTICSEARCH_8_19_3 = def(8_841_0_67);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_8_19_4 = def(8_841_0_68);
+     public static final TransportVersion V_9_0_0 = def(9_000_0_09);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_9_0_1 = def(9_000_0_10);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_9_0_2 = def(9_000_0_11);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_9_0_3 = def(9_000_0_12);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_9_0_4 = def(9_000_0_13);
+-    public static final TransportVersion INITIAL_ELASTICSEARCH_9_0_6 = def(9_000_0_15);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_9_0_7 = def(9_000_0_16);
+     public static final TransportVersion COHERE_BIT_EMBEDDING_TYPE_SUPPORT_ADDED = def(9_001_0_00);
+     public static final TransportVersion REMOVE_SNAPSHOT_FAILURES = def(9_002_0_00);
+@@ -333,15 +332,16 @@ public class TransportVersions {
+     public static final TransportVersion ML_INFERENCE_COHERE_API_VERSION = def(9_110_0_00);
+     public static final TransportVersion ESQL_PROFILE_INCLUDE_PLAN = def(9_111_0_00);
+     public static final TransportVersion MAPPINGS_IN_DATA_STREAMS = def(9_112_0_00);
++    public static final TransportVersion ESQL_SPLIT_ON_BIG_VALUES_9_1 = def(9_112_0_01);
+     public static final TransportVersion ESQL_FIXED_INDEX_LIKE_9_1 = def(9_112_0_02);
+     public static final TransportVersion ESQL_SAMPLE_OPERATOR_STATUS_9_1 = def(9_112_0_03);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_9_1_1 = def(9_112_0_04);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_9_1_2 = def(9_112_0_05);
+-    public static final TransportVersion INITIAL_ELASTICSEARCH_9_1_3 = def(9_112_0_06);
+     public static final TransportVersion INITIAL_ELASTICSEARCH_9_1_4 = def(9_112_0_07);
+     public static final TransportVersion PROJECT_STATE_REGISTRY_RECORDS_DELETIONS = def(9_113_0_00);
+     public static final TransportVersion ESQL_SERIALIZE_TIMESERIES_FIELD_TYPE = def(9_114_0_00);
+     public static final TransportVersion ML_INFERENCE_IBM_WATSONX_COMPLETION_ADDED = def(9_115_0_00);
++    public static final TransportVersion ESQL_SPLIT_ON_BIG_VALUES = def(9_116_0_00);
+     public static final TransportVersion ESQL_LOCAL_RELATION_WITH_NEW_BLOCKS = def(9_117_0_00);
+     public static final TransportVersion ML_INFERENCE_CUSTOM_SERVICE_EMBEDDING_TYPE = def(9_118_0_00);
+     public static final TransportVersion ESQL_FIXED_INDEX_LIKE = def(9_119_0_00);
+diff --git a/server/src/main/resources/transport/definitions/referable/esql_split_on_big_values.csv b/server/src/main/resources/transport/definitions/referable/esql_split_on_big_values.csv
+deleted file mode 100644
+index 3d0c94f8fa4..00000000000
+--- a/server/src/main/resources/transport/definitions/referable/esql_split_on_big_values.csv
++++ /dev/null
+@@ -1 +0,0 @@
+-9116000,9112001,8841063
+diff --git a/server/src/main/resources/transport/definitions/referable/ml_rollover_legacy_indices.csv b/server/src/main/resources/transport/definitions/referable/ml_rollover_legacy_indices.csv
+deleted file mode 100644
+index 2b049c72d49..00000000000
+--- a/server/src/main/resources/transport/definitions/referable/ml_rollover_legacy_indices.csv
++++ /dev/null
+@@ -1 +0,0 @@
+-8830000
+diff --git a/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_8_18_6.csv b/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_8_18_6.csv
+new file mode 100644
+index 00000000000..0ff8fc01e91
+--- /dev/null
++++ b/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_8_18_6.csv
+@@ -0,0 +1 @@
++8840008
+diff --git a/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_8_19_3.csv b/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_8_19_3.csv
+new file mode 100644
+index 00000000000..20882a00fd8
+--- /dev/null
++++ b/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_8_19_3.csv
+@@ -0,0 +1 @@
++8841067
+diff --git a/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_9_0_6.csv b/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_9_0_6.csv
+new file mode 100644
+index 00000000000..9cbaf3dd8c2
+--- /dev/null
++++ b/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_9_0_6.csv
+@@ -0,0 +1 @@
++9000015
+diff --git a/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_9_1_3.csv b/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_9_1_3.csv
+new file mode 100644
+index 00000000000..9cba3c528df
+--- /dev/null
++++ b/server/src/main/resources/transport/definitions/unreferable/initial_elasticsearch_9_1_3.csv
+@@ -0,0 +1 @@
++9112006
+diff --git a/server/src/main/resources/transport/upper_bounds/8.18.csv b/server/src/main/resources/transport/upper_bounds/8.18.csv
+index 2f86b671455..4eb5140004e 100644
+--- a/server/src/main/resources/transport/upper_bounds/8.18.csv
++++ b/server/src/main/resources/transport/upper_bounds/8.18.csv
+@@ -1 +1 @@
+-initial_elasticsearch_8_18_5,8840007
++initial_elasticsearch_8_18_6,8840008
+diff --git a/server/src/main/resources/transport/upper_bounds/8.19.csv b/server/src/main/resources/transport/upper_bounds/8.19.csv
+index 7f608c0ced6..476468b2038 100644
+--- a/server/src/main/resources/transport/upper_bounds/8.19.csv
++++ b/server/src/main/resources/transport/upper_bounds/8.19.csv
+@@ -1 +1 @@
+-esql_split_on_big_values,8841063
++initial_elasticsearch_8_19_3,8841067
+diff --git a/server/src/main/resources/transport/upper_bounds/9.0.csv b/server/src/main/resources/transport/upper_bounds/9.0.csv
+index e0a322af52b..f8f50cc6d78 100644
+--- a/server/src/main/resources/transport/upper_bounds/9.0.csv
++++ b/server/src/main/resources/transport/upper_bounds/9.0.csv
+@@ -1 +1 @@
+-initial_elasticsearch_9_0_5,9000014
++initial_elasticsearch_9_0_6,9000015
+diff --git a/server/src/main/resources/transport/upper_bounds/9.1.csv b/server/src/main/resources/transport/upper_bounds/9.1.csv
+index 19c74372653..079475f1a2f 100644
+--- a/server/src/main/resources/transport/upper_bounds/9.1.csv
++++ b/server/src/main/resources/transport/upper_bounds/9.1.csv
+@@ -1 +1 @@
+-esql_split_on_big_values,9112001
++initial_elasticsearch_9_1_3,9112006
+diff --git a/x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/lucene/read/ValuesSourceReaderOperatorStatus.java b/x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/lucene/read/ValuesSourceReaderOperatorStatus.java
+index 13ed5e4c84b..4a8fcda81f8 100644
+--- a/x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/lucene/read/ValuesSourceReaderOperatorStatus.java
++++ b/x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/lucene/read/ValuesSourceReaderOperatorStatus.java
+@@ -23,6 +23,9 @@ import java.util.Objects;
+ 
+ import static org.elasticsearch.TransportVersions.ESQL_DOCUMENTS_FOUND_AND_VALUES_LOADED;
+ import static org.elasticsearch.TransportVersions.ESQL_DOCUMENTS_FOUND_AND_VALUES_LOADED_8_19;
++import static org.elasticsearch.TransportVersions.ESQL_SPLIT_ON_BIG_VALUES;
++import static org.elasticsearch.TransportVersions.ESQL_SPLIT_ON_BIG_VALUES_8_19;
++import static org.elasticsearch.TransportVersions.ESQL_SPLIT_ON_BIG_VALUES_9_1;
+ 
+ public class ValuesSourceReaderOperatorStatus extends AbstractPageMappingToIteratorOperator.Status {
+     public static final NamedWriteableRegistry.Entry ENTRY = new NamedWriteableRegistry.Entry(
+@@ -30,7 +33,6 @@ public class ValuesSourceReaderOperatorStatus extends AbstractPageMappingToItera
+         "values_source_reader",
+         ValuesSourceReaderOperatorStatus::readFrom
+     );
+-    private static final TransportVersion SPLIT_ON_BIG_VALUES = TransportVersion.fromName("esql_split_on_big_values");
+ 
+     private final Map<String, Integer> readersBuilt;
+     private final long valuesLoaded;
+@@ -101,7 +103,9 @@ public class ValuesSourceReaderOperatorStatus extends AbstractPageMappingToItera
+     }
+ 
+     private static boolean supportsSplitOnBigValues(TransportVersion version) {
+-        return version.supports(SPLIT_ON_BIG_VALUES);
++        return version.onOrAfter(ESQL_SPLIT_ON_BIG_VALUES)
++            || version.isPatchFrom(ESQL_SPLIT_ON_BIG_VALUES_9_1)
++            || version.isPatchFrom(ESQL_SPLIT_ON_BIG_VALUES_8_19);
+     }
+ 
+     private static boolean supportsValuesLoaded(TransportVersion version) {
+diff --git a/x-pack/plugin/ml/src/main/java/org/elasticsearch/xpack/ml/MlAnomaliesIndexUpdate.java b/x-pack/plugin/ml/src/main/java/org/elasticsearch/xpack/ml/MlAnomaliesIndexUpdate.java
+index fb20a22a258..8067fcfde4a 100644
+--- a/x-pack/plugin/ml/src/main/java/org/elasticsearch/xpack/ml/MlAnomaliesIndexUpdate.java
++++ b/x-pack/plugin/ml/src/main/java/org/elasticsearch/xpack/ml/MlAnomaliesIndexUpdate.java
+@@ -40,6 +40,7 @@ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.List;
+ 
++import static org.elasticsearch.TransportVersions.ML_ROLLOVER_LEGACY_INDICES;
+ import static org.elasticsearch.xpack.core.ClientHelper.ML_ORIGIN;
+ import static org.elasticsearch.xpack.core.ml.utils.MlIndexAndAlias.FIRST_INDEX_SIX_DIGIT_SUFFIX;
+ import static org.elasticsearch.xpack.core.ml.utils.MlIndexAndAlias.has6DigitSuffix;
+@@ -52,8 +53,6 @@ public class MlAnomaliesIndexUpdate implements MlAutoUpdateService.UpdateAction
+ 
+     private static final Logger logger = LogManager.getLogger(MlAnomaliesIndexUpdate.class);
+ 
+-    private static final TransportVersion ML_ROLLOVER_LEGACY_INDICES = TransportVersion.fromName("ml_rollover_legacy_indices");
+-
+     private final IndexNameExpressionResolver expressionResolver;
+     private final OriginSettingClient client;
+ 
+@@ -66,7 +65,7 @@ public class MlAnomaliesIndexUpdate implements MlAutoUpdateService.UpdateAction
+     public boolean isMinTransportVersionSupported(TransportVersion minTransportVersion) {
+         // Automatic rollover does not require any new features
+         // but wait for all nodes to be upgraded anyway
+-        return minTransportVersion.supports(ML_ROLLOVER_LEGACY_INDICES);
++        return minTransportVersion.onOrAfter(ML_ROLLOVER_LEGACY_INDICES);
+     }
+ 
+     @Override
+diff --git a/x-pack/plugin/ml/src/main/java/org/elasticsearch/xpack/ml/MlIndexRollover.java b/x-pack/plugin/ml/src/main/java/org/elasticsearch/xpack/ml/MlIndexRollover.java
+index ba47fa5558c..e5613a61552 100644
+--- a/x-pack/plugin/ml/src/main/java/org/elasticsearch/xpack/ml/MlIndexRollover.java
++++ b/x-pack/plugin/ml/src/main/java/org/elasticsearch/xpack/ml/MlIndexRollover.java
+@@ -30,6 +30,7 @@ import org.elasticsearch.xpack.core.ml.utils.MlIndexAndAlias;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
++import static org.elasticsearch.TransportVersions.ML_ROLLOVER_LEGACY_INDICES;
+ import static org.elasticsearch.xpack.core.ClientHelper.ML_ORIGIN;
+ 
+ /**
+@@ -43,8 +44,6 @@ public class MlIndexRollover implements MlAutoUpdateService.UpdateAction {
+ 
+     private static final Logger logger = LogManager.getLogger(MlIndexRollover.class);
+ 
+-    private static final TransportVersion ML_ROLLOVER_LEGACY_INDICES = TransportVersion.fromName("ml_rollover_legacy_indices");
+-
+     public record IndexPatternAndAlias(String indexPattern, String alias) {}
+ 
+     private final IndexNameExpressionResolver expressionResolver;

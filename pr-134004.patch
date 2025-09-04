@@ -1,0 +1,12 @@
+diff --git a/docs/reference/search-connectors/es-connectors-sharepoint.md b/docs/reference/search-connectors/es-connectors-sharepoint.md
+index 65d242eed3dd9f8082a3600d515b132a0cb95e3d..c76e547b5a0c1014b54d23cb6e8f9b3e43ec0801 100644
+--- a/docs/reference/search-connectors/es-connectors-sharepoint.md
++++ b/docs/reference/search-connectors/es-connectors-sharepoint.md
+@@ -147,6 +147,7 @@ The following configuration fields are required to set up the connector:
+     * `collection1`
+     * `collection1, collection2`
+ 
++To index from the root of all site collections, simply specify your SharePoint server URL in the `site_collections` field.
+ 
+ `ssl_enabled`
+ :   Whether SSL verification will be enabled. Default value is `False`.

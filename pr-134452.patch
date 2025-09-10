@@ -1,0 +1,43 @@
+diff --git a/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/Expression.java b/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/Expression.java
+index 3b37a97daaf5ec1ad35ae626f40a60e2b572d2e0..62c3adafb8fff4e74c8f661c1254948c140a5106 100644
+--- a/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/Expression.java
++++ b/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/Expression.java
+@@ -15,6 +15,7 @@ import org.elasticsearch.xpack.esql.core.type.DataType;
+ import org.elasticsearch.xpack.esql.core.util.StringUtils;
+ 
+ import java.util.List;
++import java.util.Set;
+ import java.util.function.Supplier;
+ 
+ /**
+@@ -101,7 +102,9 @@ public abstract class Expression extends Node<Expression> implements Resolvable
+ 
+     public abstract Nullability nullable();
+ 
+-    // the references/inputs/leaves of the expression tree
++    /**
++     * {@link Set} of {@link Attribute}s referenced by this {@link Expression}.
++     */
+     public AttributeSet references() {
+         if (lazyReferences == null) {
+             lazyReferences = Expressions.references(children());
+diff --git a/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/Expressions.java b/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/Expressions.java
+index ef9917c58bfd3bfd7b0a1c8133827c8b39328bba..281433dc7bd604f23874663df3a3c3c8d3bdf23c 100644
+--- a/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/Expressions.java
++++ b/x-pack/plugin/esql-core/src/main/java/org/elasticsearch/xpack/esql/core/expression/Expressions.java
+@@ -101,6 +101,15 @@ public final class Expressions {
+     }
+ 
+     public static AttributeSet references(List<? extends Expression> exps) {
++        if (exps.size() == 1) {
++            /*
++             * If we're getting the references from a single expression it's safe
++             * to just use its references. This is quite common. We use a ton of
++             * Aliases, for example. And every unary function can share its references
++             * with its input.
++             */
++            return exps.getFirst().references();
++        }
+         return AttributeSet.of(exps, Expression::references);
+     }
+ 

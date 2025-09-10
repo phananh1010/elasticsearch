@@ -1,0 +1,62 @@
+diff --git a/server/src/main/java/org/elasticsearch/TransportVersion.java b/server/src/main/java/org/elasticsearch/TransportVersion.java
+index cff3c22aa9e9eaaaf59edc859c3afb1d1fb1a295..f130f7d62e29b21f083ad3f40aedfbf5867741ef 100644
+--- a/server/src/main/java/org/elasticsearch/TransportVersion.java
++++ b/server/src/main/java/org/elasticsearch/TransportVersion.java
+@@ -117,7 +117,10 @@ public record TransportVersion(String name, int id, TransportVersion nextPatchVe
+         Integer upperBound
+     ) {
+         try {
+-            String line = bufferedReader.readLine();
++            String line;
++            do {
++                line = bufferedReader.readLine();
++            } while (line.replaceAll("\\s+", "").startsWith("#"));
+             String[] parts = line.replaceAll("\\s+", "").split(",");
+             String check;
+             while ((check = bufferedReader.readLine()) != null) {
+diff --git a/server/src/test/java/org/elasticsearch/TransportVersionTests.java b/server/src/test/java/org/elasticsearch/TransportVersionTests.java
+index 761ae19dbad7df7df8d65202b288cb12241425d0..e51ca0c553fb647d3c8055abb558641e7830e708 100644
+--- a/server/src/test/java/org/elasticsearch/TransportVersionTests.java
++++ b/server/src/test/java/org/elasticsearch/TransportVersionTests.java
+@@ -354,4 +354,41 @@ public class TransportVersionTests extends ESTestCase {
+         assertThat(new TransportVersion(null, 100001000, null).supports(test4), is(true));
+         assertThat(new TransportVersion(null, 100001001, null).supports(test4), is(true));
+     }
++
++    public void testComment() {
++        byte[] data1 = ("#comment" + System.lineSeparator() + "1000000").getBytes(StandardCharsets.UTF_8);
++        TransportVersion test1 = TransportVersion.fromBufferedReader(
++            "<test>",
++            "testSupports3",
++            false,
++            true,
++            new BufferedReader(new InputStreamReader(new ByteArrayInputStream(data1), StandardCharsets.UTF_8)),
++            5000000
++        );
++        assertThat(new TransportVersion(null, 1000000, null).supports(test1), is(true));
++
++        byte[] data2 = (" # comment" + System.lineSeparator() + "1000000").getBytes(StandardCharsets.UTF_8);
++        TransportVersion test2 = TransportVersion.fromBufferedReader(
++            "<test>",
++            "testSupports3",
++            false,
++            true,
++            new BufferedReader(new InputStreamReader(new ByteArrayInputStream(data2), StandardCharsets.UTF_8)),
++            5000000
++        );
++        assertThat(new TransportVersion(null, 1000000, null).supports(test2), is(true));
++
++        byte[] data3 = ("#comment" + System.lineSeparator() + "# comment3" + System.lineSeparator() + "1000000").getBytes(
++            StandardCharsets.UTF_8
++        );
++        TransportVersion test3 = TransportVersion.fromBufferedReader(
++            "<test>",
++            "testSupports3",
++            false,
++            true,
++            new BufferedReader(new InputStreamReader(new ByteArrayInputStream(data3), StandardCharsets.UTF_8)),
++            5000000
++        );
++        assertThat(new TransportVersion(null, 1000000, null).supports(test3), is(true));
++    }
+ }

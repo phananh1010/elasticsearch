@@ -1,0 +1,300 @@
+diff --git a/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-avg-over-time.csv-spec b/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-avg-over-time.csv-spec
+index 11164c76cd6a2424afb59d836014a274c55775cd..8c165327062ea89ed159b9e5a3c48262c7f43106 100644
+--- a/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-avg-over-time.csv-spec
++++ b/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-avg-over-time.csv-spec
+@@ -100,6 +100,22 @@ tx:double          | cluster:keyword | time_bucket:datetime
+ 493.5              | staging         | 2024-05-10T00:20:00.000Z
+ ;
+ 
++avg_over_time_with_inline_filtering
++required_capability: metrics_command
++TS k8s | STATS tx = sum(avg_over_time(network.bytes_in)) WHERE pod == "one"  BY cluster, time_bucket = bucket(@timestamp, 10minute) | SORT time_bucket, cluster | LIMIT 10;
++
++tx:double          | cluster:keyword | time_bucket:datetime
++293.0              | prod            | 2024-05-10T00:00:00.000Z
++482.6666666666667  | qa              | 2024-05-10T00:00:00.000Z
++494.1666666666667  | staging         | 2024-05-10T00:00:00.000Z
++601.5454545454545  | prod            | 2024-05-10T00:10:00.000Z
++496.14285714285717 | qa              | 2024-05-10T00:10:00.000Z
++441.6              | staging         | 2024-05-10T00:10:00.000Z
++633.3333333333334  | prod            | 2024-05-10T00:20:00.000Z
++440.0              | qa              | 2024-05-10T00:20:00.000Z
++493.5              | staging         | 2024-05-10T00:20:00.000Z
++;
++
+ avg_over_time_older_than_10d
+ required_capability: metrics_command
+ required_capability: avg_over_time
+diff --git a/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-last-over-time.csv-spec b/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-last-over-time.csv-spec
+index 024d8e8149f5eecdf820e11402234ba3059051ad..675659e1f5e2462dd0f29ac83c7796c3394d5e31 100644
+--- a/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-last-over-time.csv-spec
++++ b/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-last-over-time.csv-spec
+@@ -106,6 +106,24 @@ tx:long | cluster:keyword | time_bucket:datetime
+ 238     | staging         | 2024-05-10T00:20:00.000Z
+ ;
+ 
++implicit_last_over_time_with_inline_filtering
++required_capability: metrics_command
++required_capability: implicit_last_over_time
++TS k8s  | STATS tx = sum(network.bytes_in) WHERE pod == "one" BY cluster, time_bucket = bucket(@timestamp, 10minute) | SORT time_bucket, cluster | LIMIT 10;
++
++tx:long | cluster:keyword | time_bucket:datetime
++3       | prod            | 2024-05-10T00:00:00.000Z
++830     | qa              | 2024-05-10T00:00:00.000Z
++753     | staging         | 2024-05-10T00:00:00.000Z
++542     | prod            | 2024-05-10T00:10:00.000Z
++187     | qa              | 2024-05-10T00:10:00.000Z
++4       | staging         | 2024-05-10T00:10:00.000Z
++931     | prod            | 2024-05-10T00:20:00.000Z
++206     | qa              | 2024-05-10T00:20:00.000Z
++238     | staging         | 2024-05-10T00:20:00.000Z
++;
++
++
+ 
+ last_over_time_older_than_10d
+ required_capability: metrics_command
+diff --git a/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-rate.csv-spec b/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-rate.csv-spec
+index edfe1cfee8d34e4abb995391e6402bbc1e2b4282..c31307d66e43e237699de1fd86ba7945a19a7fff 100644
+--- a/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-rate.csv-spec
++++ b/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries-rate.csv-spec
+@@ -73,7 +73,24 @@ rate_bytes_in:double | cluster:keyword | time_bucket:datetime
+ 2.210158359293873    | prod            | 2024-05-10T00:20:00.000Z
+ 0.8955555555555565   | qa              | 2024-05-10T00:20:00.000Z
+ 0.595                | staging         | 2024-05-10T00:20:00.000Z
++;
++
++rate_with_inline_filtering
++required_capability: metrics_command
++TS k8s 
++| STATS rate_bytes_in = sum(rate(network.total_bytes_in)) WHERE pod == "one" BY cluster, time_bucket = bucket(@timestamp, 10minute)
++| SORT time_bucket, cluster | LIMIT 10;
+ 
++rate_bytes_in:double | cluster:keyword | time_bucket:datetime
++4.0314581958195825   | prod            | 2024-05-10T00:00:00.000Z
++9.955833333333333    | qa              | 2024-05-10T00:00:00.000Z
++4.242445473251029    | staging         | 2024-05-10T00:00:00.000Z
++11.188380281690138   | prod            | 2024-05-10T00:10:00.000Z
++12.222592592592592   | qa              | 2024-05-10T00:10:00.000Z
++3.050371490280777    | staging         | 2024-05-10T00:10:00.000Z
++2.210158359293873    | prod            | 2024-05-10T00:20:00.000Z
++0.8955555555555565   | qa              | 2024-05-10T00:20:00.000Z
++0.595                | staging         | 2024-05-10T00:20:00.000Z
+ ;
+ 
+ eval_on_rate
+diff --git a/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries.csv-spec b/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries.csv-spec
+index da92b4dbb99c3814c51b572b6745aa6d3dcfe6fd..b3ac0be9f03a817e96dbb2e374cc2a95533c56f4 100644
+--- a/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries.csv-spec
++++ b/x-pack/plugin/esql/qa/testFixtures/src/main/resources/k8s-timeseries.csv-spec
+@@ -201,6 +201,24 @@ max(rate(network.total_bytes_in)):double | time_bucket:datetime     | cluster:ke
+ 11.562737642585551                       | 2024-05-10T00:10:00.000Z | prod
+ ;
+ 
++maxRateWithInlineFilter
++required_capability: metrics_command
++TS k8s | STATS max_rate = max(rate(network.total_bytes_in)) WHERE cluster=="prod" BY cluster | SORT cluster;
++
++max_rate:double         | cluster:keyword
++8.716707021791768       | prod
++null                    | qa
++null                    | staging
++;
++
++maxRateWithPreFilter
++required_capability: metrics_command
++TS k8s | WHERE cluster=="prod" | STATS max_rate = max(rate(network.total_bytes_in)) BY cluster | SORT cluster;
++
++max_rate:double         | cluster:keyword
++8.716707021791768       | prod
++;
++
+ notEnoughSamples
+ required_capability: metrics_command
+ TS k8s | WHERE @timestamp <= "2024-05-10T00:06:14.000Z" | STATS max(rate(network.total_bytes_in)) BY pod, time_bucket = bucket(@timestamp,1minute) | SORT pod, time_bucket DESC | LIMIT 10;
+diff --git a/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/AggregateFunction.java b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/AggregateFunction.java
+index d59bf721ccf30902282157e6be17fe60ce732d89..225895e15a3ae8a3457b9f8e462c9a52838f2bf7 100644
+--- a/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/AggregateFunction.java
++++ b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/AggregateFunction.java
+@@ -11,7 +11,9 @@ import org.elasticsearch.common.io.stream.StreamInput;
+ import org.elasticsearch.common.io.stream.StreamOutput;
+ import org.elasticsearch.xpack.esql.capabilities.PostAnalysisPlanVerificationAware;
+ import org.elasticsearch.xpack.esql.common.Failures;
++import org.elasticsearch.xpack.esql.core.expression.AttributeSet;
+ import org.elasticsearch.xpack.esql.core.expression.Expression;
++import org.elasticsearch.xpack.esql.core.expression.Expressions;
+ import org.elasticsearch.xpack.esql.core.expression.Literal;
+ import org.elasticsearch.xpack.esql.core.expression.TypeResolutions;
+ import org.elasticsearch.xpack.esql.core.expression.function.Function;
+@@ -152,6 +154,17 @@ public abstract class AggregateFunction extends Function implements PostAnalysis
+         return (AggregateFunction) replaceChildren(CollectionUtils.combine(asList(field, filter), parameters));
+     }
+ 
++    /**
++     * Returns the set of input attributes required by this aggregate function, excluding those referenced by the filter.
++     */
++    public AttributeSet aggregateInputReferences() {
++        if (hasFilter()) {
++            return Expressions.references(CollectionUtils.combine(List.of(field), parameters));
++        } else {
++            return references();
++        }
++    }
++
+     @Override
+     public int hashCode() {
+         // NB: the hashcode is currently used for key generation so
+diff --git a/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/optimizer/rules/logical/TranslateTimeSeriesAggregate.java b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/optimizer/rules/logical/TranslateTimeSeriesAggregate.java
+index 72d31c24f48dfa98f517905890848d65b5acaf85..f1726a40d9163c9943c28f16f6ce7b35a98cca34 100644
+--- a/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/optimizer/rules/logical/TranslateTimeSeriesAggregate.java
++++ b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/optimizer/rules/logical/TranslateTimeSeriesAggregate.java
+@@ -13,6 +13,7 @@ import org.elasticsearch.xpack.esql.core.expression.Alias;
+ import org.elasticsearch.xpack.esql.core.expression.Attribute;
+ import org.elasticsearch.xpack.esql.core.expression.Expression;
+ import org.elasticsearch.xpack.esql.core.expression.Expressions;
++import org.elasticsearch.xpack.esql.core.expression.Literal;
+ import org.elasticsearch.xpack.esql.core.expression.MetadataAttribute;
+ import org.elasticsearch.xpack.esql.core.expression.NamedExpression;
+ import org.elasticsearch.xpack.esql.core.type.DataType;
+@@ -184,7 +185,21 @@ public final class TranslateTimeSeriesAggregate extends OptimizerRules.Optimizer
+         for (NamedExpression agg : aggregate.aggregates()) {
+             if (agg instanceof Alias alias && alias.child() instanceof AggregateFunction af) {
+                 Holder<Boolean> changed = new Holder<>(Boolean.FALSE);
++                final Expression inlineFilter;
++                if (af.hasFilter()) {
++                    inlineFilter = af.filter();
++                    af = af.withFilter(Literal.TRUE);
++                } else {
++                    inlineFilter = null;
++                }
+                 Expression outerAgg = af.transformDown(TimeSeriesAggregateFunction.class, tsAgg -> {
++                    if (inlineFilter != null) {
++                        if (tsAgg.hasFilter() == false) {
++                            throw new IllegalStateException("inline filter isn't propagated to time-series aggregation");
++                        }
++                    } else if (tsAgg.hasFilter()) {
++                        throw new IllegalStateException("unexpected inline filter in time-series aggregation");
++                    }
+                     changed.set(Boolean.TRUE);
+                     if (tsAgg instanceof Rate) {
+                         hasRateAggregates.set(Boolean.TRUE);
+@@ -201,14 +216,28 @@ public final class TranslateTimeSeriesAggregate extends OptimizerRules.Optimizer
+                     secondPassAggs.add(new Alias(alias.source(), alias.name(), outerAgg, agg.id()));
+                 } else {
+                     // TODO: reject over_time_aggregation only
+-                    var tsAgg = new LastOverTime(af.source(), af.field(), timestamp.get());
+-                    AggregateFunction firstStageFn = tsAgg.perTimeSeriesAggregation();
++                    final Expression aggField = af.field();
++                    var tsAgg = new LastOverTime(af.source(), aggField, timestamp.get());
++                    final AggregateFunction firstStageFn;
++                    if (inlineFilter != null) {
++                        firstStageFn = tsAgg.perTimeSeriesAggregation().withFilter(inlineFilter);
++                    } else {
++                        firstStageFn = tsAgg.perTimeSeriesAggregation();
++                    }
+                     Alias newAgg = timeSeriesAggs.computeIfAbsent(firstStageFn, k -> {
+                         Alias firstStageAlias = new Alias(tsAgg.source(), internalNames.next(tsAgg.functionName()), firstStageFn);
+                         firstPassAggs.add(firstStageAlias);
+                         return firstStageAlias;
+                     });
+-                    secondPassAggs.add((Alias) agg.transformUp(f -> f == af.field(), f -> newAgg.toAttribute()));
++                    secondPassAggs.add((Alias) agg.transformUp(f -> f == aggField || f instanceof AggregateFunction, e -> {
++                        if (e == aggField) {
++                            return newAgg.toAttribute();
++                        } else if (e instanceof AggregateFunction f) {
++                            return f.withFilter(Literal.TRUE);
++                        } else {
++                            return e;
++                        }
++                    }));
+                 }
+             }
+         }
+diff --git a/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/AbstractPhysicalOperationProviders.java b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/AbstractPhysicalOperationProviders.java
+index e45fe2b0e81d8c37ebc9a60bda3e40c0be14468c..e3e1315f98aa2f27d38bf9f041fa8a549384a59b 100644
+--- a/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/AbstractPhysicalOperationProviders.java
++++ b/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/planner/AbstractPhysicalOperationProviders.java
+@@ -279,7 +279,7 @@ public abstract class AbstractPhysicalOperationProviders implements PhysicalOper
+                             }
+                         } else {
+                             // extra dependencies like TS ones (that require a timestamp)
+-                            for (Expression input : aggregateFunction.references()) {
++                            for (Expression input : aggregateFunction.aggregateInputReferences()) {
+                                 Attribute attr = Expressions.attribute(input);
+                                 if (attr == null) {
+                                     throw new EsqlIllegalArgumentException(
+diff --git a/x-pack/plugin/esql/src/test/java/org/elasticsearch/xpack/esql/optimizer/LogicalPlanOptimizerTests.java b/x-pack/plugin/esql/src/test/java/org/elasticsearch/xpack/esql/optimizer/LogicalPlanOptimizerTests.java
+index 6aad2f0f99cc94daeca2f0958c8dfd6ff1d6569b..1a181fe805e811ccb0a441f3b7ec15e3c723cf05 100644
+--- a/x-pack/plugin/esql/src/test/java/org/elasticsearch/xpack/esql/optimizer/LogicalPlanOptimizerTests.java
++++ b/x-pack/plugin/esql/src/test/java/org/elasticsearch/xpack/esql/optimizer/LogicalPlanOptimizerTests.java
+@@ -7751,6 +7751,70 @@ public class LogicalPlanOptimizerTests extends AbstractLogicalPlanOptimizerTests
+         assertThat(Expressions.attribute(bucket.field()).name(), equalTo("@timestamp"));
+     }
+ 
++    public void testTranslateWithInlineFilter() {
++        assumeTrue("requires metrics command", EsqlCapabilities.Cap.METRICS_COMMAND.isEnabled());
++        var query = """
++            TS k8s | STATS sum(last_over_time(network.bytes_in)) WHERE cluster == "prod" BY bucket(@timestamp, 1 minute)
++            | LIMIT 10
++            """;
++        var plan = logicalOptimizer.optimize(metricsAnalyzer.analyze(parser.createStatement(query, EsqlTestUtils.TEST_CFG)));
++        var limit = as(plan, Limit.class);
++        Aggregate finalAgg = as(limit.child(), Aggregate.class);
++        assertThat(finalAgg, not(instanceOf(TimeSeriesAggregate.class)));
++        TimeSeriesAggregate aggsByTsid = as(finalAgg.child(), TimeSeriesAggregate.class);
++        assertNotNull(aggsByTsid.timeBucket());
++        assertThat(aggsByTsid.timeBucket().buckets().fold(FoldContext.small()), equalTo(Duration.ofMinutes(1)));
++        Eval evalBucket = as(aggsByTsid.child(), Eval.class);
++        assertThat(evalBucket.fields(), hasSize(1));
++        EsRelation relation = as(evalBucket.child(), EsRelation.class);
++        assertThat(relation.indexMode(), equalTo(IndexMode.STANDARD));
++
++        var sum = as(Alias.unwrap(finalAgg.aggregates().get(0)), Sum.class);
++        assertFalse(sum.hasFilter());
++
++        LastOverTime lastOverTime = as(Alias.unwrap(aggsByTsid.aggregates().get(0)), LastOverTime.class);
++        assertThat(Expressions.attribute(lastOverTime.field()).name(), equalTo("network.bytes_in"));
++        assertThat(Expressions.attribute(aggsByTsid.groupings().get(1)).id(), equalTo(evalBucket.fields().get(0).id()));
++        Bucket bucket = as(Alias.unwrap(evalBucket.fields().get(0)), Bucket.class);
++        assertThat(Expressions.attribute(bucket.field()).name(), equalTo("@timestamp"));
++        assertTrue(lastOverTime.hasFilter());
++        assertThat(lastOverTime.filter(), instanceOf(Equals.class));
++    }
++
++    public void testTranslateWithInlineFilterWithImplicitLastOverTime() {
++        assumeTrue("requires metrics command", EsqlCapabilities.Cap.METRICS_COMMAND.isEnabled());
++        var query = """
++            TS k8s | STATS avg(network.bytes_in) WHERE cluster == "prod" BY bucket(@timestamp, 1 minute)
++            | LIMIT 10
++            """;
++        var plan = logicalOptimizer.optimize(metricsAnalyzer.analyze(parser.createStatement(query, EsqlTestUtils.TEST_CFG)));
++        var project = as(plan, Project.class);
++        var eval = as(project.child(), Eval.class);
++        var limit = as(eval.child(), Limit.class);
++        Aggregate finalAgg = as(limit.child(), Aggregate.class);
++        assertThat(finalAgg, not(instanceOf(TimeSeriesAggregate.class)));
++        TimeSeriesAggregate aggsByTsid = as(finalAgg.child(), TimeSeriesAggregate.class);
++        assertNotNull(aggsByTsid.timeBucket());
++        assertThat(aggsByTsid.timeBucket().buckets().fold(FoldContext.small()), equalTo(Duration.ofMinutes(1)));
++        Eval evalBucket = as(aggsByTsid.child(), Eval.class);
++        assertThat(evalBucket.fields(), hasSize(1));
++        EsRelation relation = as(evalBucket.child(), EsRelation.class);
++        assertThat(relation.indexMode(), equalTo(IndexMode.STANDARD));
++
++        var sum = as(Alias.unwrap(finalAgg.aggregates().get(0)), Sum.class);
++        assertFalse(sum.hasFilter());
++        var count = as(Alias.unwrap(finalAgg.aggregates().get(1)), Count.class);
++        assertFalse(count.hasFilter());
++
++        LastOverTime lastOverTime = as(Alias.unwrap(aggsByTsid.aggregates().get(0)), LastOverTime.class);
++        assertThat(Expressions.attribute(lastOverTime.field()).name(), equalTo("network.bytes_in"));
++        assertThat(Expressions.attribute(aggsByTsid.groupings().get(1)).id(), equalTo(evalBucket.fields().get(0).id()));
++        Bucket bucket = as(Alias.unwrap(evalBucket.fields().get(0)), Bucket.class);
++        assertThat(Expressions.attribute(bucket.field()).name(), equalTo("@timestamp"));
++        assertTrue(lastOverTime.hasFilter());
++        assertThat(lastOverTime.filter(), instanceOf(Equals.class));
++    }
++
+     public void testMvSortInvalidOrder() {
+         VerificationException e = expectThrows(VerificationException.class, () -> plan("""
+             from test

@@ -1,14 +1,18 @@
 reviews:
-  profile: chill
-  high_level_summary: true
+  profile: assertive         
+  high_level_summary: true   
+  request_changes_workflow: true   
   auto_review:
     enabled: true
     drafts: false
-  base_branches:
-    - 'upstream-main'  
-    - '.*'           
+
   tools:
-    eslint:
+    # Java-focused analyzers
+    checkstyle:
       enabled: true
-    gitleaks:
+      # optionally point to your config: config_path: "config/checkstyle/checkstyle.xml"
+    spotbugs:
       enabled: true
+    pmd:
+      enabled: true
+

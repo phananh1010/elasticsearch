@@ -1,18 +1,21 @@
 reviews:
-  profile: assertive         
-  high_level_summary: true   
-  request_changes_workflow: true   
+  profile: assertive
+  high_level_summary: true
+  request_changes_workflow: true
+  review_status: true
+
   auto_review:
     enabled: true
     drafts: false
+    base_branches:
+      - main
+      - upstream-main
+      # - ".*"             # or review into ANY branch
 
   tools:
-    # Java-focused analyzers
     checkstyle:
       enabled: true
-      # optionally point to your config: config_path: "config/checkstyle/checkstyle.xml"
     spotbugs:
       enabled: true
     pmd:
-      enabled: true
-
+      enabled: true        # ← remove the stray semicolon

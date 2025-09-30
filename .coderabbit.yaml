@@ -1,3 +1,4 @@
+# .coderabbit.yaml
 reviews:
   profile: assertive
   high_level_summary: true
@@ -8,9 +9,9 @@ reviews:
     enabled: true
     drafts: false
     base_branches:
-      - main
-      - upstream-main
-      # - ".*"             # or review into ANY branch
+      - upstream-main     # PR base shown on your page
+      - main              # future-proof if base switches
+      # - ".*"            # OR just allow all bases
 
   tools:
     checkstyle:
@@ -18,4 +19,4 @@ reviews:
     spotbugs:
       enabled: true
     pmd:
-      enabled: true        # ← remove the stray semicolon
+      enabled: true

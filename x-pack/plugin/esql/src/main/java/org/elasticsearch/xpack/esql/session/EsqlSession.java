@@ -182,7 +182,12 @@ public class EsqlSession {
     /**
      * Execute an ESQL request.
      */
-    public void execute(EsqlQueryRequest request, EsqlExecutionInfo executionInfo, PlanRunner planRunner, ActionListener<Result> listener) {
+    public void execute(
+        EsqlQueryRequest request,
+        EsqlExecutionInfo executionInfo,
+        PlanRunner planRunner,
+        ActionListener<Versioned<Result>> listener
+    ) {
         assert ThreadPool.assertCurrentThreadPool(ThreadPool.Names.SEARCH);
         assert executionInfo != null : "Null EsqlExecutionInfo";
         LOGGER.debug("ESQL query:\n{}", request.query());
@@ -254,6 +259,7 @@ public class EsqlSession {
                                 l
                             )
                         )
+                        .<Versioned<Result>>andThen((l, r) -> l.onResponse(new Versioned<>(r, minimumVersion)))
                         .addListener(listener);
                 }
             }
@@ -560,7 +566,15 @@ public class EsqlSession {
             })
             .<PreAnalysisResult>andThen((l, r) -> preAnalyzeLookupIndices(preAnalysis.lookupIndices().iterator(), r, executionInfo, l))
             .<PreAnalysisResult>andThen((l, r) -> {
-                enrichPolicyResolver.resolvePolicies(preAnalysis.enriches(), executionInfo, l.map(r::withEnrichResolution));
+                enrichPolicyResolver.resolvePolicies(
+                    preAnalysis.enriches(),
+                    executionInfo,
+                    r.minimumTransportVersion(),
+                    l.map(
+                        versionedResolution -> r.withEnrichResolution(versionedResolution.inner())
+                            .withMinimumTransportVersion(versionedResolution.minimumVersion())
+                    )
+                );
             })
             .<PreAnalysisResult>andThen((l, r) -> {
                 inferenceService.inferenceResolver(functionRegistry).resolveInferenceIds(parsed, l.map(r::withInferenceResolution));
@@ -572,7 +586,9 @@ public class EsqlSession {
     }
 
     /**
-     * Perform a field caps request for each lookup index. Does not update the minimum transport version.
+     * Perform a field caps request for each lookup index.
+     * <p>
+     * Updates the minimum transport version to deal with ROW queries, where the main index resolution does not make a field caps request.
      */
     private void preAnalyzeLookupIndices(
         Iterator<IndexPattern> lookupIndices,
@@ -605,6 +621,7 @@ public class EsqlSession {
             // Disable aggregate_metric_double and dense_vector until we get version checks in planning
             false,
             false,
+            result.minimumTransportVersion(),
             listener.map(indexResolution -> receiveLookupIndexResolution(result, localPattern, executionInfo, indexResolution))
         );
     }
@@ -630,8 +647,9 @@ public class EsqlSession {
         PreAnalysisResult result,
         String index,
         EsqlExecutionInfo executionInfo,
-        IndexResolution lookupIndexResolution
+        Versioned<IndexResolution> versionedLookupIndexResolution
     ) {
+        IndexResolution lookupIndexResolution = versionedLookupIndexResolution.inner();
         EsqlCCSUtils.updateExecutionInfoWithUnavailableClusters(executionInfo, lookupIndexResolution.failures());
         if (lookupIndexResolution.isValid() == false) {
             // If the index resolution is invalid, don't bother with the rest of the analysis
@@ -661,7 +679,9 @@ public class EsqlSession {
                         + "] mode"
                 );
             }
-            return result.addLookupIndexResolution(index, lookupIndexResolution);
+
+            return result.addLookupIndexResolution(index, lookupIndexResolution)
+                .withMinimumTransportVersion(versionedLookupIndexResolution.minimumVersion());
         }
 
         if (lookupIndexResolution.get().indexNameWithModes().isEmpty() && lookupIndexResolution.resolvedIndices().isEmpty() == false) {
@@ -832,7 +852,7 @@ public class EsqlSession {
             // return empty resolution if the expression is pure CCS and resolved no remote clusters (like no-such-cluster*:index)
             listener.onResponse(result.withIndices(indexPattern, IndexResolution.empty(indexPattern.indexPattern())));
         } else {
-            indexResolver.resolveAsMergedMappingAndRetrieveMinimumVersion(
+            indexResolver.resolveAsMergedMapping(
                 indexPattern.indexPattern(),
                 result.fieldNames,
                 // Maybe if no indices are returned, retry without index mode and provide a clearer error message.
@@ -848,6 +868,7 @@ public class EsqlSession {
                 indexMode == IndexMode.TIME_SERIES,
                 preAnalysis.useAggregateMetricDoubleWhenNotSupported(),
                 preAnalysis.useDenseVectorWhenNotSupported(),
+                null,
                 listener.delegateFailureAndWrap((l, indexResolution) -> {
                     EsqlCCSUtils.updateExecutionInfoWithUnavailableClusters(executionInfo, indexResolution.inner().failures());
                     l.onResponse(

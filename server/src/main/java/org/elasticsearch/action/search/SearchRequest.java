@@ -116,6 +116,7 @@ public class SearchRequest extends LegacyActionRequest implements IndicesRequest
      * enabling synthetic source natively in the index.
      */
     private boolean forceSyntheticSource = false;
+    private String projectRouting;
 
     public SearchRequest() {
         this.localClusterAlias = null;
@@ -168,6 +169,15 @@ public class SearchRequest extends LegacyActionRequest implements IndicesRequest
         return true;
     }
 
+    @Override
+    public String getProjectRouting() {
+        return projectRouting;
+    }
+
+    public void setProjectRouting(@Nullable String projectRouting) {
+        this.projectRouting = projectRouting;
+    }
+
     /**
      * Creates a new sub-search request starting from the original search request that is provided.
      * For internal use only, allows to fork a search request into multiple search requests that will be executed independently.
@@ -199,6 +209,7 @@ public class SearchRequest extends LegacyActionRequest implements IndicesRequest
         }
         final SearchRequest request = new SearchRequest(originalSearchRequest, indices, clusterAlias, absoluteStartMillis, finalReduce);
         request.setParentTask(parentTaskId);
+        request.setProjectRouting(originalSearchRequest.getProjectRouting());
         return request;
     }
 
@@ -228,6 +239,7 @@ public class SearchRequest extends LegacyActionRequest implements IndicesRequest
         this.waitForCheckpoints = searchRequest.waitForCheckpoints;
         this.waitForCheckpointsTimeout = searchRequest.waitForCheckpointsTimeout;
         this.forceSyntheticSource = searchRequest.forceSyntheticSource;
+        this.projectRouting = searchRequest.projectRouting;
     }
 
     /**

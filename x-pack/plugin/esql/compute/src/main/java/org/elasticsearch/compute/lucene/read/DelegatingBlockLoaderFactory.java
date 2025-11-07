@@ -152,6 +152,11 @@ public abstract class DelegatingBlockLoaderFactory implements BlockLoader.BlockF
     }
 
     @Override
+    public BlockLoader.LongRangeBuilder dateRangeBuilder(int expectedCount) {
+        return factory.newLongRangeBlockBuilder(expectedCount);
+    }
+
+    @Override
     public BlockLoader.ExponentialHistogramBuilder exponentialHistogramBlockBuilder(int count) {
         return factory.newExponentialHistogramBlockBuilder(count);
     }

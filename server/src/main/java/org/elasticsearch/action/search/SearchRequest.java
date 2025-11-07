@@ -116,6 +116,7 @@ public class SearchRequest extends LegacyActionRequest implements IndicesRequest
      * enabling synthetic source natively in the index.
      */
     private boolean forceSyntheticSource = false;
+    private String projectRouting;
 
     public SearchRequest() {
         this.localClusterAlias = null;
@@ -166,6 +167,19 @@ public class SearchRequest extends LegacyActionRequest implements IndicesRequest
     @Override
     public boolean allowsCrossProject() {
         return true;
+    }
+
+    @Override
+    public String getProjectRouting() {
+        return projectRouting;
+    }
+
+    public void setProjectRouting(@Nullable String projectRouting) {
+        if (this.projectRouting != null) {
+            throw new IllegalArgumentException("project_routing is already set to [" + this.projectRouting + "]");
+        }
+
+        this.projectRouting = projectRouting;
     }
 
     /**
@@ -228,6 +242,7 @@ public class SearchRequest extends LegacyActionRequest implements IndicesRequest
         this.waitForCheckpoints = searchRequest.waitForCheckpoints;
         this.waitForCheckpointsTimeout = searchRequest.waitForCheckpointsTimeout;
         this.forceSyntheticSource = searchRequest.forceSyntheticSource;
+        this.projectRouting = searchRequest.projectRouting;
     }
 
     /**
